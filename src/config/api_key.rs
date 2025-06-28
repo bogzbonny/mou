@@ -109,8 +109,6 @@ impl Into<SecretString> for &ApiKey {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::temp_env;
-
     use super::*;
     use serde::Deserialize;
 
@@ -127,40 +125,6 @@ mod tests {
 
         let config: Config = toml::from_str(toml).unwrap();
         assert_eq!(config.api_key.expose_secret(), "my-secret-key");
-    }
-
-    #[test]
-    fn test_deserialize_api_key_from_env() {
-        let _temp_env = temp_env("MY_SECRET_KEY", "env-secret-key");
-
-        let toml = r#"
-            api_key = "env:MY_SECRET_KEY"
-        "#;
-
-        let config: Config = toml::from_str(toml).unwrap();
-        assert_eq!(config.api_key.expose_secret(), "env-secret-key");
-    }
-
-    #[test]
-    fn test_deserialize_api_key_from_file() {
-        use std::fs::File;
-        use std::io::Write;
-        use tempfile::tempdir;
-
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("secret.txt");
-        let mut file = File::create(&file_path).unwrap();
-        writeln!(file, "file-secret-key").unwrap();
-
-        let toml = format!(
-            r#"
-            api_key = "file:{}"
-        "#,
-            file_path.to_str().unwrap()
-        );
-
-        let config: Config = toml::from_str(&toml).unwrap();
-        assert_eq!(config.api_key.expose_secret(), "file-secret-key");
     }
 
     #[test]

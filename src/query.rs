@@ -1,15 +1,16 @@
 use {
     crate::{config::Config, templates::Templates, util::strip_markdown_tags},
     anyhow::Result,
+    async_trait::async_trait,
     indoc::formatdoc,
-    swiftide::traits::EvaluateQuery,
     swiftide::{
         query::{
             self, answers, query_transformers, search_strategies::SimilaritySingleEmbedding,
             states, Query,
         },
-        traits::{EmbeddingModel, Persist, Retrieve, SimplePrompt},
+        traits::{EmbeddingModel, EvaluateQuery, Persist, Retrieve, SimplePrompt},
     },
+    swiftide_core::{document::Document, Answer},
 };
 
 #[tracing::instrument(skip_all, err)]
@@ -21,12 +22,74 @@ where
     // Ensure the table exists to avoid dumb errors
     let _ = storage.setup().await;
 
-    let answer = build_query_pipeline(config, storage, None)?
+    let answer = build_nearest_pipeline(config, storage, None)?
         .query(query.as_ref())
         .await?
         .answer()
         .to_string();
     Ok(strip_markdown_tags(&answer))
+}
+
+/// Pipeline for simply querying the database for closest matches
+pub fn build_nearest_pipeline<'b, S>(
+    config: &Config,
+    storage: &S,
+    evaluator: Option<Box<dyn EvaluateQuery>>,
+) -> Result<query::Pipeline<'b, SimilaritySingleEmbedding, states::Answered>>
+where
+    S: Retrieve<SimilaritySingleEmbedding> + Clone + 'static,
+{
+    let backoff = config.backoff;
+    //let query_provider: Box<dyn SimplePrompt> =
+    //    config.query_provider().get_simple_prompt_model(backoff)?;
+    let embedding_provider: Box<dyn EmbeddingModel> =
+        config.embedding_provider().get_embedding_model(backoff)?;
+
+    let search_strategy: SimilaritySingleEmbedding<()> = SimilaritySingleEmbedding::default()
+        .with_top_k(30)
+        .to_owned();
+
+    let answerer = ListAnswerer::default();
+
+    let mut pipeline = query::Pipeline::from_search_strategy(search_strategy);
+
+    if let Some(evaluator) = evaluator {
+        pipeline = pipeline.evaluate_with(evaluator);
+    }
+
+    Ok(pipeline
+        .then_transform_query(move |mut query: Query<states::Pending>| {
+            let current = query.current();
+            query.transformed_query(formatdoc! {"{current}"});
+            Ok(query)
+        })
+        .then_transform_query(query_transformers::Embed::from_client(
+            embedding_provider.clone(),
+        ))
+        .then_retrieve(storage.clone())
+        .then_answer(answerer))
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ListAnswerer();
+
+#[async_trait]
+impl Answer for ListAnswerer {
+    #[tracing::instrument(skip_all)]
+    async fn answer(&self, query: Query<states::Retrieved>) -> Result<Query<states::Answered>> {
+        let mut context = tera::Context::new();
+
+        context.insert("question", query.original());
+
+        let documents = query
+            .documents()
+            .iter()
+            .map(Document::content)
+            .collect::<Vec<_>>()
+            .join("\n---\n");
+        let answer = format!("Nearest statements are:\n\n{documents}");
+        Ok(query.answered(answer))
+    }
 }
 
 /// Builds a query pipeline

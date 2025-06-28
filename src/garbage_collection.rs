@@ -2,10 +2,9 @@
 //!
 //!
 //! NOTE: If more general settings are added to duckdb, better extract this to a more general place.
-
 use {
     super::duckdb_index,
-    crate::{runtime_settings::RuntimeSettings, Config, Statement},
+    crate::{runtime_settings::RuntimeSettings, Config, Statement, Statements},
     anyhow::{Context as _, Result},
     std::{borrow::Cow, time::SystemTime},
     swiftide::{integrations::duckdb::Duckdb, traits::Persist},
@@ -18,19 +17,13 @@ pub struct GarbageCollector<'config> {
     /// The last index date
     config: Cow<'config, Config>,
     duckdb: Duckdb,
-    /// Extensions to consider for GC
-    file_extensions: Vec<&'config str>,
 }
 
 impl<'config> GarbageCollector<'config> {
     pub fn from_config(config: &'config Config) -> Self {
-        let mut file_extensions = config.language_extensions();
-        file_extensions.push("md");
-
         Self {
             config: Cow::Borrowed(config),
             duckdb: duckdb_index::get_duckdb(config),
-            file_extensions,
         }
     }
 
@@ -44,9 +37,9 @@ impl<'config> GarbageCollector<'config> {
         }
     }
 
-    async fn get_last_cleaned_up_at(&self) -> Option<SystemTime> {
-        self.runtime_settings().get(LAST_CLEANED_UP_AT).await
-    }
+    //async fn get_last_cleaned_up_at(&self) -> Option<SystemTime> {
+    //    self.runtime_settings().get(LAST_CLEANED_UP_AT).await
+    //}
 
     async fn update_last_cleaned_up_at(&self, date: SystemTime) {
         if let Err(e) = self.runtime_settings().set(LAST_CLEANED_UP_AT, date).await {
@@ -55,16 +48,16 @@ impl<'config> GarbageCollector<'config> {
     }
 
     // NOTE this is a placeholder
-    async fn statements_deleted_since_last_index(&self) -> Vec<Statement> {
-        return vec![];
+    async fn statements_deleted_since_last_index(&self) -> Statements {
+        Statements::default()
     }
 
     // NOTE this is a placeholder
-    async fn statements_changed_since_last_index(&self) -> Vec<Statement> {
-        return vec![];
+    async fn statements_changed_since_last_index(&self) -> Statements {
+        Statements::default()
     }
 
-    async fn delete_statements_from_index(&self, statements: Vec<Statement>) -> Result<()> {
+    async fn delete_statements_from_index(&self, statements: Statements) -> Result<()> {
         // Ensure the table is set up
         tracing::info!(
             "Setting up duckdb table for deletion of statements: {:?}",
@@ -84,7 +77,7 @@ impl<'config> GarbageCollector<'config> {
             let table = self.duckdb.table_name();
             let mut stmt = tx.prepare(&format!("DELETE FROM {table} WHERE path = ?"))?;
 
-            for statement in statements {
+            for statement in statements.iter() {
                 tracing::debug!(?statement, "Deleting file from Duckdb index with predicate",);
                 stmt.execute([statement.to_string()])?;
             }
@@ -122,8 +115,8 @@ impl<'config> GarbageCollector<'config> {
         tracing::info!("Starting cleanup process.");
 
         let statements = [
-            self.statements_changed_since_last_index().await,
-            self.statements_deleted_since_last_index().await,
+            self.statements_changed_since_last_index().await.0,
+            self.statements_deleted_since_last_index().await.0,
         ]
         .concat();
 
@@ -152,7 +145,7 @@ impl<'config> GarbageCollector<'config> {
                 return Err(e);
             }
 
-            if let Err(e) = self.delete_statements_from_index(statements).await {
+            if let Err(e) = self.delete_statements_from_index(statements.into()).await {
                 self.update_last_cleaned_up_at(SystemTime::now()).await;
                 return Err(e);
             }

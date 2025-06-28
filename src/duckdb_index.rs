@@ -1,11 +1,11 @@
 use {
     crate::{
         indexing::{index_statements, Index},
-        query, Config, Responder, Statement,
+        query, Config, Statements,
     },
     anyhow::{Context, Result},
     async_trait::async_trait,
-    std::sync::{Arc, OnceLock},
+    std::sync::OnceLock,
     swiftide::{indexing::EmbeddedField, integrations::duckdb::Duckdb},
 };
 
@@ -17,13 +17,14 @@ static DUCK_DB: OnceLock<Duckdb> = OnceLock::new();
 /// Panics if it cannot setup duckdb
 pub fn get_duckdb(config: &Config) -> Duckdb {
     DUCK_DB
-        .get_or_init(|| build_duckdb(config).expect("Failed to build duckdb"))
+        .get_or_init(|| build_duckdb(config).expect("Failed to build duckdb (2)"))
         .to_owned()
 }
 
 // Probably should just be on the repository/config, cloned from there.
 // This sucks in tests
 pub(crate) fn build_duckdb(config: &Config) -> Result<Duckdb> {
+    std::fs::create_dir_all(config.cache_dir())?;
     let path = config.cache_dir().join("duck.db3");
 
     tracing::debug!("Building Duckdb: {}", path.display());
@@ -63,18 +64,13 @@ impl DuckdbIndex {
 
 #[async_trait]
 impl Index for DuckdbIndex {
-    async fn query_repository(&self, config: &Config, query_: &str) -> Result<String> {
+    async fn query_statements(&self, config: &Config, query_: &str) -> Result<String> {
         let storage = self.get_duckdb(config);
         query::query(config, &storage, query_).await
     }
 
-    async fn index_statements(
-        &self,
-        statements: Vec<Statement>,
-        config: &Config,
-        responder: Option<Arc<dyn Responder>>,
-    ) -> Result<()> {
+    async fn index_statements(&self, statements: Statements, config: &Config) -> Result<()> {
         let storage = self.get_duckdb(config);
-        index_statements(statements, config, &storage, responder).await
+        index_statements(statements, config, &storage).await
     }
 }

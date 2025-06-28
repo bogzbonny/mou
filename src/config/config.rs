@@ -7,29 +7,45 @@ use {
         },
         mcp::McpServer,
         tools::Tools,
-        CommandConfiguration, LLMConfiguration, LLMConfigurations,
+        LLMConfiguration, LLMConfigurations,
     },
     crate::runtime_settings::RuntimeSettings,
     anyhow::{Context as _, Result},
     config::{Config as ConfigRs, Environment, File},
-    serde::{Deserialize, Deserializer, Serialize},
+    home::home_dir,
+    serde::{Deserialize, Serialize},
     std::{
         path::{Path, PathBuf},
         str::FromStr,
         time::Duration,
     },
-    swiftide::integrations::treesitter::SupportedLanguages,
 };
+
+// TODO try with Qwen3-Embedding-8B
+pub const DEFAULT_CONFIG: &str = indoc::indoc! {"
+    tavily_api_key = \"env:TAVILY_API_KEY\"
+    openai_api_key = \"env:KWAAK_OPENAI_API_KEY\"
+    tool_executor = \"docker\"
+
+    [llm.indexing]
+    provider = \"Ollama\"
+    prompt_model = \"llama3.2\"
+
+    [llm.query]
+    provider = \"Ollama\"
+    prompt_model = \"llama3.2\"
+
+    [llm.embedding]
+    provider = \"Ollama\"
+    embedding_model = { name = \"bge-m3\", vector_size = 1024 }
+"};
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default = "default_project_name")]
     pub project_name: String,
-    #[serde(alias = "language", deserialize_with = "deserialize_languages")]
-    pub languages: Vec<SupportedLanguages>,
     pub llm: Box<LLMConfigurations>,
-    pub commands: CommandConfiguration,
     #[serde(default = "default_cache_dir")]
     pub cache_dir: PathBuf,
     #[serde(default = "default_log_dir")]
@@ -151,24 +167,6 @@ pub struct Config {
     pub mcp: Option<Vec<McpServer>>,
 }
 
-fn deserialize_languages<'de, D>(deserializer: D) -> Result<Vec<SupportedLanguages>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Helper {
-        Single(SupportedLanguages),
-        Multiple(Vec<SupportedLanguages>),
-    }
-
-    let helper = Helper::deserialize(deserializer)?;
-
-    match helper {
-        Helper::Single(lang) => Ok(vec![lang]),
-        Helper::Multiple(langs) => Ok(langs),
-    }
-}
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct UIConfig {
@@ -282,23 +280,37 @@ impl FromStr for Config {
     }
 }
 
+pub fn default_config_path() -> PathBuf {
+    home_dir()
+        .expect("Failed to find home directory")
+        .join(".config")
+        .join("mou.toml")
+}
+
 impl Config {
     #[must_use]
     pub fn runtime_settings(&self) -> RuntimeSettings {
         RuntimeSettings::from_config(self)
     }
 
+    pub fn write_default_config() -> Result<()> {
+        let config_path = default_config_path();
+
+        if !config_path.exists() {
+            // write the default config
+            std::fs::write(config_path, DEFAULT_CONFIG)?;
+        }
+        Ok(())
+    }
+
     pub fn load(path: Option<&Path>) -> Result<Self> {
+        let config_path = default_config_path();
+
         let builder = match path {
             Some(path) => ConfigRs::builder().add_source(File::from(path)),
             None => {
-                // Support both kwaak.toml and .config/kwaak.toml
                 // Check if they exist and create the builder accordingly
-                if std::fs::metadata(".config/mou.toml").is_ok() {
-                    ConfigRs::builder().add_source(File::with_name(".config/mou.toml"))
-                } else {
-                    ConfigRs::builder().add_source(File::with_name("mou.toml"))
-                }
+                ConfigRs::builder().add_source(File::with_name(&config_path.display().to_string()))
             }
         };
 
@@ -313,17 +325,6 @@ impl Config {
             .map_err(Into::into)
             .and_then(Config::fill_llm_api_keys)
             .map(Config::add_project_name_to_paths)
-    }
-
-    #[must_use]
-    pub fn language_extensions(&self) -> Vec<&str> {
-        let mut extensions = vec![];
-
-        for lang in &self.languages {
-            extensions.extend(lang.file_extensions());
-        }
-
-        extensions
     }
 
     // Seeds the api keys into the LLM configurations
