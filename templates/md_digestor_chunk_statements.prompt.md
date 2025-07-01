@@ -9,29 +9,22 @@ freedoms.
 
 # Task
 
-Your task is to understand the provided Text Snippet and incorporate its
-fundamental meaning into new Question(s) posed and Statement(s) which attempt to
-answer the Question(s). 
+Your task is to identify the importance of the provided Text Snippet, in terms of the core Question(s) it is attempting to answer.
 
 # Background
 
-Currently, you are integrating your understanding of a document into a map by
-reading the document in a piecemeal fashion, you are focusing on this Text
-Snippet.
+Currently, you are integrating your understanding of a document into a map of understanding by
+reading the document in a piecemeal fashion, focusing on one Text
+Snippet at a time. Your current Text Snippet is attached below.
 
-We begin by phrasing Question(s) which the Text appear to be answering. A
-Question guides the process of inquiry into the truth it thus provides essential
-context for identifying the core Statement(s) of the Text.
-
-Within the Map the concept of a Statement is an atomized piece of text which
-captures a notion, presupposition, idea, critique, thought, etc. 
+You will begin by identifying the core Question(s) which the Text Snippet appears to be answering. These Questions will be used to guide the subsequent process of inquiry into the perspective and core arguements expressed by the document as a whole.
 
 # Constraints
 
-- NEVER reference the text or the author when you speak by using words like "the
-  text", "this document, "according to the author", etc., instead simply state
-  the Question or Statement in absolute terms, The author and document
-  information will ALREADY automatically be cataloged in metadata so there is no
+- NEVER reference the text or the author in your answers. For example, never say things like "the
+  text", "this document, "according to the author", etc. and instead simply state
+  the Question(s) the Text appears to be answering in absolute terms. The author and document
+  information will ALREADY be automatically cataloged in metadata so there is no
   need to reference them in your speech. 
 - Each Statement does not necessarily need to have a Question. A single Question
   can be reused for multiple Statements, as well a single Statement can answer
