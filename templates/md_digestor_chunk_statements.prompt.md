@@ -25,10 +25,7 @@ You will begin by identifying the core Question(s) which the Text Snippet appear
   text", "this document, "according to the author", etc. and instead simply state
   the Question(s) the Text appears to be answering in absolute terms. The author and document
   information will ALREADY be automatically cataloged in metadata so there is no
-  need to reference them in your speech. 
-- Each Statement does not necessarily need to have a Question. A single Question
-  can be reused for multiple Statements, as well a single Statement can answer
-  multiple Questions.
+  need to reference them in your answers. 
 - Do not over-think or over-analyze, come up with an obvious and straightforward
   logical output.
 - Use absolute clarity and completeness in all statements made, capture the
@@ -42,16 +39,13 @@ Respond in the following example format and do not include anything else:
 
 ```
 QUESTION-Q1: What color is the sky in London.
-STATEMENT-S1: The sky is grey when it is raining.
-STATEMENT-S2: It is often raining in London.
-STATEMENT-S3: The sky is grey in London.
 ...
 ```
 
-# Existing Statements
+# Existing Questions
 
 ```
-{{statements_list}}
+{{questions_list}}
 ```
 
 # Text Snippet
