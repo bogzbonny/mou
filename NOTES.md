@@ -46,21 +46,24 @@
 -----------------------
 # Document Digesting
 
-1. First pass: Query each chunk for 
+1. First pass:
+2. Query small chunks for 
     - core question(s) answered in chunk
-    - summery of the chunk summary
-2. Order questions hierarchically
+    - summary of the chunk
+3. Order questions hierarchically
     - generate global guiding question(s)
-3. Generate Global summary from chunk summaries
+    - use embedding network and nearby questions to determine possible connections between questions
+    - analyze if these connections make sense using global summary and chunks from which those questions were generated
+4. Generate Global summary from chunk summaries
     - feed in the Global Guiding Question(s) during this query
-4. Second pass: Generating statements for each chunk, feed in: 
+5. Second pass: Generating statements for each chunk, feed in: 
     - global summary
     - the previously generated question for this chunk
     - all questions up the hierarchical question chain leading to the 
       Global-Guiding Question(s)
-5. Potentially perform step-4 multiple times (Configurable)
-6. Query LLM to choose the best-statement set from 5 (if applicable
-7. generate logical connections long-list
+6. Potentially perform step-4 multiple times (Configurable)
+7. Query LLM to choose the best-statement set from 5 (if applicable
+8. generate logical connections long-list
     - select a set of statements/questions which may have connections
        - select some by querying the embed for the statements
        - also select some by proximity of the source text snippet they were
@@ -69,21 +72,21 @@
       potentially spurious ones, these will be pruned later
     - perform this prompt multiple times in with different statements and
       compile a long list of all connections generated.
-8. (non-LLM) programmatically delete identical duplicate connections
-9. Correct/verify of logical connections 
+9. (non-LLM) programmatically delete identical duplicate connections
+10. Correct/verify of logical connections 
     - do NOT use chunk summaries in this prompt, all connections should be
       self-evident based on the statements themselves.
     - prompt with guiding questions for all relevant statements
     - querying reflection each connection individually (“is this correct if not
       provide correction; is this necessary to maintain understanding among
       related statements if not, delete it”
-10. (non-LLM) Prune nodes disconnected from Global-Guiding Question 
-11. Generate new outer questions/issues (New Questions)
+11. (non-LLM) Prune nodes disconnected from Global-Guiding Question 
+12. Generate new outer questions/issues (New Questions)
      - Go through statements with connections and attempt generate new questions
        arising out of negative connections between statements such as disputes etc. 
      - Place these open New Questions on the Map but maintain a separate list of
        them for the next step
-12. IF This step (Step-12) has not been taken more than "max_calls_step_12" then
+13. IF This step (Step-12) has not been taken more than "max_calls_step_12" then
     Query the document (traditional document RAG?) to see if the New Questions
     are addressed already within the document and just not adequately put into
     statements.
@@ -96,7 +99,7 @@
      - For each new connection generated Perform step 11 to recursively generate
        New potential Questions
      - Increase num-times-step-12-called by one (to prevent infinite recursion) 
-13. Consolidation:
+14. Consolidation:
      - Iterate through the Map and groups of connected Questions, Statements,
        and their Connections. 
      - Attempt to generate consolidation statement nodes which effectively
