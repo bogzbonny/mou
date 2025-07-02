@@ -45,20 +45,19 @@
 
 -----------------------
 # Document Digesting
-
+0. Generate summaries of large chunks
+0.1 Generate global summary (summary of summaries)
 1. First pass:
-2. Query small chunks for 
+2. Query chunks for 
     - core question(s) answered in chunk
     - summary of the chunk
 3. Order questions hierarchically
     - generate global guiding question(s)
-    - use embedding network and nearby questions to determine possible connections between questions
-    - analyze if these connections make sense using global summary and chunks from which those questions were generated
-4. Generate Global summary from chunk summaries
-    - feed in the Global Guiding Question(s) during this query
+    - use embedding network and nearby questions to determine possible hierachical connections between questions
+    - analyze if these connections make sense using chunks from which those questions were generated and global summary
 5. Second pass: Generating statements for each chunk, feed in: 
     - global summary
-    - the previously generated question for this chunk
+    - the previously generated questions for this chunk
     - all questions up the hierarchical question chain leading to the 
       Global-Guiding Question(s)
 6. Potentially perform step-4 multiple times (Configurable)
